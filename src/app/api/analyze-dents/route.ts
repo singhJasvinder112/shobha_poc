@@ -2,6 +2,7 @@ import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
 import { NextResponse } from "next/server";
 import { dentAnalysisSchema } from "@/lib/dent-analysis-schema";
+import { saveAnalysis } from "@/lib/db";
 
 export const maxDuration = 60;
 
@@ -67,6 +68,12 @@ export async function POST(request: Request) {
         schema: dentAnalysisSchema,
       }),
     });
+
+    try {
+      await saveAnalysis(media.name, isVideo ? "video" : "image", output);
+    } catch (dbError) {
+      console.error("Failed to save analysis to database", dbError);
+    }
 
     return NextResponse.json(output);
   } catch (error) {
