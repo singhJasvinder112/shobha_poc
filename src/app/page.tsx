@@ -13,29 +13,15 @@ import {
   Sparkles,
   Trash2,
   Video,
-  Wrench,
   X,
 } from "lucide-react";
 import type { DentAnalysis } from "@/lib/dent-analysis-schema";
 import type { AnalysisRecord } from "@/lib/db";
 import LiveScanner from "@/components/LiveScanner";
-
-const SEVERITY_STYLES: Record<string, string> = {
-  minor:
-    "bg-yellow-50 text-yellow-700 ring-1 ring-inset ring-yellow-600/20 dark:bg-yellow-500/10 dark:text-yellow-400 dark:ring-yellow-500/20",
-  moderate:
-    "bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/20 dark:bg-orange-500/10 dark:text-orange-400 dark:ring-orange-500/20",
-  severe:
-    "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20",
-};
-
-const CONDITION_STYLES: Record<string, string> = {
-  excellent:
-    "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20",
-  good: "bg-lime-50 text-lime-700 ring-1 ring-inset ring-lime-600/20 dark:bg-lime-500/10 dark:text-lime-400 dark:ring-lime-500/20",
-  fair: "bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/20 dark:bg-orange-500/10 dark:text-orange-400 dark:ring-orange-500/20",
-  poor: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20",
-};
+import {
+  AnalysisDetails,
+  CONDITION_STYLES,
+} from "@/components/AnalysisDetails";
 
 const MAX_CONCURRENT_ANALYSES = 3;
 
@@ -73,7 +59,7 @@ function StatusBadge({ status }: { status: QueueStatus }) {
   switch (status) {
     case "analyzing":
       return (
-        <span className="flex shrink-0 items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+        <span className="flex shrink-0 items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-600 dark:bg-orange-500/10 dark:text-orange-400">
           <Loader2 className="size-3 animate-spin" />
           Analyzing
         </span>
@@ -101,113 +87,6 @@ function StatusBadge({ status }: { status: QueueStatus }) {
   }
 }
 
-function AnalysisDetails({ result }: { result: DentAnalysis }) {
-  return (
-    <div className="flex flex-col gap-5 border-t border-slate-200 pt-4 dark:border-white/10">
-      {!result.vehicleDetected && (
-        <div className="flex items-start gap-2 rounded-lg bg-orange-50 px-3 py-2.5 text-sm text-orange-700 dark:bg-orange-500/10 dark:text-orange-400">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <p>
-            No bus was clearly detected in this file — results below may be
-            unreliable.
-          </p>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase dark:text-slate-500">
-          Overall condition
-        </span>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${CONDITION_STYLES[result.overallCondition] ?? ""}`}
-        >
-          {result.overallCondition}
-        </span>
-      </div>
-
-      <div>
-        <h3 className="mb-3 text-xs font-semibold tracking-wide text-slate-400 uppercase dark:text-slate-500">
-          Dents found ({result.dents.length})
-        </h3>
-        {result.dents.length === 0 ? (
-          <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
-            <CheckCircle2 className="size-4 shrink-0" />
-            <p>No dents detected.</p>
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {result.dents.map((dent, i) => (
-              <li
-                key={i}
-                className="flex flex-col gap-1.5 rounded-xl border border-slate-200 p-4 transition-colors hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-slate-800 dark:text-slate-100">
-                    {dent.location}
-                  </span>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${SEVERITY_STYLES[dent.severity] ?? ""}`}
-                  >
-                    {dent.severity}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {dent.description}
-                </p>
-                <p className="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
-                  <span>Approx. size: {dent.approximateSize}</span>
-                  {dent.timestamp && (
-                    <span className="flex items-center gap-1">
-                      <Film className="size-3" />
-                      {dent.timestamp}
-                    </span>
-                  )}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {result.otherDamage.length > 0 && (
-        <div>
-          <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase dark:text-slate-500">
-            Other damage
-          </h3>
-          <ul className="flex flex-col gap-1.5">
-            {result.otherDamage.map((d, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400"
-              >
-                <span className="mt-1.5 size-1 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500" />
-                {d}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-2 rounded-xl bg-indigo-50/60 p-4 dark:bg-indigo-500/10">
-        <h3 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-indigo-600 uppercase dark:text-indigo-400">
-          <Wrench className="size-3.5" />
-          Recommendation
-        </h3>
-        <p className="text-sm text-slate-700 dark:text-slate-300">
-          {result.recommendation}
-        </p>
-        {result.estimatedRepairCostUsd && (
-          <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-100">
-            Estimated repair cost: $
-            {result.estimatedRepairCostUsd.low.toLocaleString()} – $
-            {result.estimatedRepairCostUsd.high.toLocaleString()}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function Home() {
   const [mode, setMode] = useState<"upload" | "live">("upload");
   const [items, setItems] = useState<QueueItem[]>([]);
@@ -215,7 +94,9 @@ export default function Home() {
   const [batchRunning, setBatchRunning] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [history, setHistory] = useState<AnalysisRecord[]>([]);
-  const [expandedHistory, setExpandedHistory] = useState<Set<number>>(new Set());
+  const [expandedHistory, setExpandedHistory] = useState<Set<number>>(
+    new Set(),
+  );
   const inputRef = useRef<HTMLInputElement>(null);
 
   function toggleHistoryExpand(id: number) {
@@ -371,7 +252,7 @@ export default function Home() {
     <div className="flex flex-1 flex-col items-center font-sans">
       <main className="flex w-full max-w-2xl flex-col gap-8 px-6 py-16">
         <header className="flex flex-col items-center gap-3 text-center">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-linear-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/25">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-linear-to-br from-orange-500 to-amber-600 shadow-lg shadow-orange-500/25">
             <Bus className="size-6 text-white" strokeWidth={2} />
           </div>
           <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">
@@ -411,7 +292,7 @@ export default function Home() {
           </button>
         </div>
 
-        {mode === "live" && <LiveScanner />}
+        {mode === "live" && <LiveScanner onReportSaved={loadHistory} />}
 
         {mode === "upload" && (
           <section className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white/80 p-6 shadow-xs backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
@@ -425,8 +306,8 @@ export default function Home() {
               onDrop={handleDrop}
               className={`group relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
                 dragActive
-                  ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10"
-                  : "border-slate-200 hover:border-indigo-400 hover:bg-slate-50 dark:border-white/15 dark:hover:border-indigo-400/60 dark:hover:bg-white/5"
+                  ? "border-orange-500 bg-orange-50 dark:bg-orange-500/10"
+                  : "border-slate-200 hover:border-orange-400 hover:bg-slate-50 dark:border-white/15 dark:hover:border-orange-400/60 dark:hover:bg-white/5"
               }`}
             >
               <input
@@ -439,7 +320,7 @@ export default function Home() {
                 className="sr-only"
               />
 
-              <div className="flex size-11 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 transition-transform group-hover:scale-105 dark:bg-indigo-500/10 dark:text-indigo-400">
+              <div className="flex size-11 items-center justify-center rounded-full bg-orange-50 text-orange-600 transition-transform group-hover:scale-105 dark:bg-orange-500/10 dark:text-orange-400">
                 <ImagePlus className="size-5" />
               </div>
               <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -555,7 +436,7 @@ export default function Home() {
             <button
               onClick={handleAnalyzeAll}
               disabled={pendingCount === 0 || batchRunning}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-linear-to-r from-indigo-600 to-violet-600 px-5 py-3 text-sm font-medium text-white shadow-md shadow-indigo-600/20 transition-all hover:shadow-lg hover:shadow-indigo-600/30 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-linear-to-r from-orange-600 to-amber-600 px-5 py-3 text-sm font-medium text-white shadow-md shadow-orange-600/20 transition-all hover:shadow-lg hover:shadow-orange-600/30 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
             >
               {batchRunning ? (
                 <>
@@ -599,7 +480,8 @@ export default function Home() {
                         </span>
                         <span className="text-xs text-slate-400 dark:text-slate-500">
                           {new Date(entry.createdAt).toLocaleString()} ·{" "}
-                          {entry.dentsCount} dent{entry.dentsCount === 1 ? "" : "s"}
+                          {entry.dentsCount} dent
+                          {entry.dentsCount === 1 ? "" : "s"}
                         </span>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">

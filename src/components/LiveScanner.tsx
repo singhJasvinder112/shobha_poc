@@ -3,12 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
+  ClipboardList,
   Loader2,
   Radio,
   Send,
   Video,
   VideoOff,
 } from "lucide-react";
+import type { DentAnalysis } from "@/lib/dent-analysis-schema";
+import { AnalysisDetails } from "@/components/AnalysisDetails";
 
 type LogEntry = {
   id: string;
@@ -33,13 +36,20 @@ const FRAME_INTERVAL_MS = 1000;
 const AUTO_SCAN_INTERVAL_MS = 6000;
 const FRAME_MAX_WIDTH = 768;
 
-export default function LiveScanner() {
+export default function LiveScanner({
+  onReportSaved,
+}: {
+  onReportSaved?: () => void;
+} = {}) {
   const [status, setStatus] = useState<LiveStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [autoScan, setAutoScan] = useState(true);
   const [question, setQuestion] = useState("");
   const [awaitingResponse, setAwaitingResponse] = useState(false);
+  const [report, setReport] = useState<DentAnalysis | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -164,6 +174,8 @@ export default function LiveScanner() {
     setStatus("connecting");
     setError(null);
     setLog([]);
+    setReport(null);
+    setReportError(null);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -285,6 +297,40 @@ export default function LiveScanner() {
     setQuestion("");
   }
 
+  async function generateReport() {
+    if (log.length === 0) return;
+    setReportLoading(true);
+    setReportError(null);
+    setReport(null);
+
+    try {
+      const res = await fetch("/api/analyze-live", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcript: log.map((entry) => ({
+            role: entry.role,
+            text: entry.text,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "Could not generate a report");
+      }
+
+      setReport(data as DentAnalysis);
+      onReportSaved?.();
+    } catch (err) {
+      setReportError(
+        err instanceof Error ? err.message : "Could not generate a report",
+      );
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
   const isLive = status === "live";
   const isConnecting = status === "connecting";
 
@@ -317,7 +363,7 @@ export default function LiveScanner() {
           <button
             onClick={start}
             disabled={isConnecting}
-            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-linear-to-r from-indigo-600 to-violet-600 px-5 py-3 text-sm font-medium text-white shadow-md shadow-indigo-600/20 transition-all hover:shadow-lg hover:shadow-indigo-600/30 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-linear-to-r from-orange-600 to-amber-600 px-5 py-3 text-sm font-medium text-white shadow-md shadow-orange-600/20 transition-all hover:shadow-lg hover:shadow-orange-600/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isConnecting ? (
               <>
@@ -370,12 +416,12 @@ export default function LiveScanner() {
               ? "Waiting for a response…"
               : "Ask about what's currently in view…"
           }
-          className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm outline-none focus:border-indigo-400 disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-white"
+          className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm outline-none focus:border-orange-400 disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-white"
         />
         <button
           type="submit"
           disabled={!isLive || awaitingResponse || !question.trim()}
-          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-orange-600 text-white disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Send"
         >
           <Send className="size-4" />
@@ -389,7 +435,7 @@ export default function LiveScanner() {
               key={entry.id}
               className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                 entry.role === "user"
-                  ? "self-end bg-indigo-600 text-white"
+                  ? "self-end bg-orange-600 text-white"
                   : "self-start bg-white text-slate-700 shadow-xs dark:bg-white/10 dark:text-slate-200"
               }`}
             >
@@ -397,6 +443,40 @@ export default function LiveScanner() {
             </li>
           ))}
         </ul>
+      )}
+
+      {log.length > 0 && (
+        <button
+          type="button"
+          onClick={generateReport}
+          disabled={reportLoading}
+          className="flex w-full items-center justify-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-5 py-3 text-sm font-medium text-orange-700 transition-colors hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/20"
+        >
+          {reportLoading ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Generating report…
+            </>
+          ) : (
+            <>
+              <ClipboardList className="size-4" />
+              Generate damage report from this session
+            </>
+          )}
+        </button>
+      )}
+
+      {reportError && (
+        <div className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-400">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <p>{reportError}</p>
+        </div>
+      )}
+
+      {report && (
+        <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
+          <AnalysisDetails result={report} />
+        </div>
       )}
     </section>
   );
