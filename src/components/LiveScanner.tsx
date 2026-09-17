@@ -85,17 +85,27 @@ export default function LiveScanner() {
   }
 
   function appendAssistantDelta(delta: string) {
-    setLog((prev) => {
-      const id = currentAssistantIdRef.current;
-      if (id) {
-        return prev.map((entry) =>
-          entry.id === id ? { ...entry, text: entry.text + delta } : entry,
-        );
-      }
+    // The ref mutation must happen here, outside the setLog updater: React
+    // (in Strict Mode / dev) can invoke a state updater more than once, and
+    // a side effect inside it (like advancing this ref) corrupts the result
+    // on the second call, silently dropping the appended text.
+    const existingId = currentAssistantIdRef.current;
+    if (!existingId) {
       const newId = crypto.randomUUID();
       currentAssistantIdRef.current = newId;
-      return [...prev, { id: newId, role: "assistant", text: delta }];
-    });
+      setLog((prev) => [
+        ...prev,
+        { id: newId, role: "assistant", text: delta },
+      ]);
+      return;
+    }
+    setLog((prev) =>
+      prev.map((entry) =>
+        entry.id === existingId
+          ? { ...entry, text: entry.text + delta }
+          : entry,
+      ),
+    );
   }
 
   function sendTurn(text: string) {
@@ -124,6 +134,9 @@ export default function LiveScanner() {
     const ws = wsRef.current;
     if (!video || !canvas || !ws || ws.readyState !== WebSocket.OPEN) return;
     if (!video.videoWidth) return;
+    // Sending realtime input while a turn is being generated can cause
+    // the Live API to treat it as new activity and cut the response short.
+    if (awaitingResponseRef.current) return;
 
     const scale = Math.min(1, FRAME_MAX_WIDTH / video.videoWidth);
     canvas.width = Math.round(video.videoWidth * scale);
@@ -213,14 +226,34 @@ export default function LiveScanner() {
           | {
               outputTranscription?: { text?: string };
               turnComplete?: boolean;
+              interrupted?: boolean;
             }
           | undefined;
-        if (!serverContent) return;
-
-        if (serverContent.outputTranscription?.text) {
-          appendAssistantDelta(serverContent.outputTranscription.text);
+        if (serverContent) {
+          if (serverContent.outputTranscription?.text) {
+            appendAssistantDelta(serverContent.outputTranscription.text);
+          }
+          if (serverContent.turnComplete || serverContent.interrupted) {
+            if (!currentAssistantIdRef.current) {
+              appendAssistantDelta(
+                serverContent.interrupted
+                  ? "(interrupted before responding)"
+                  : "(no response)",
+              );
+            }
+            currentAssistantIdRef.current = null;
+            awaitingResponseRef.current = false;
+            setAwaitingResponse(false);
+          }
+          return;
         }
-        if (serverContent.turnComplete) {
+
+        if (message.error) {
+          setError(
+            typeof message.error === "string"
+              ? message.error
+              : "The live session reported an error.",
+          );
           currentAssistantIdRef.current = null;
           awaitingResponseRef.current = false;
           setAwaitingResponse(false);
