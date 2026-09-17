@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Bus,
   CheckCircle2,
+  Film,
   ImagePlus,
   Loader2,
   Sparkles,
@@ -54,7 +55,7 @@ export default function Home() {
     e.preventDefault();
     setDragActive(false);
     const dropped = e.dataTransfer.files?.[0];
-    if (dropped && dropped.type.startsWith("image/")) {
+    if (dropped && (dropped.type.startsWith("image/") || dropped.type.startsWith("video/"))) {
       selectFile(dropped);
     }
   }
@@ -72,7 +73,7 @@ export default function Home() {
 
     try {
       const formData = new FormData();
-      formData.append("image", file);
+      formData.append("media", file);
 
       const res = await fetch("/api/analyze-dents", {
         method: "POST",
@@ -104,8 +105,8 @@ export default function Home() {
             Bus Dent Analysis
           </h1>
           <p className="max-w-md text-sm text-slate-500 dark:text-slate-400">
-            Upload a photo of a bus and Gemini will identify dents, rate
-            severity, and suggest next steps.
+            Upload a photo or walkaround video of a bus and Gemini will
+            identify dents, rate severity, and suggest next steps.
           </p>
         </header>
 
@@ -128,19 +129,28 @@ export default function Home() {
               ref={inputRef}
               id="bus-photo"
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               onChange={handleFileChange}
               className="sr-only"
             />
 
-            {previewUrl ? (
+            {previewUrl && file ? (
               <div className="relative w-full">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewUrl}
-                  alt="Bus preview"
-                  className="max-h-96 w-full rounded-xl bg-slate-100 object-contain dark:bg-slate-900"
-                />
+                {file.type.startsWith("video/") ? (
+                  <video
+                    src={previewUrl}
+                    controls
+                    muted
+                    className="max-h-96 w-full rounded-xl bg-slate-100 object-contain dark:bg-slate-900"
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={previewUrl}
+                    alt="Bus preview"
+                    className="max-h-96 w-full rounded-xl bg-slate-100 object-contain dark:bg-slate-900"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -148,7 +158,7 @@ export default function Home() {
                     handleClear();
                   }}
                   className="absolute top-3 right-3 flex size-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
-                  aria-label="Remove photo"
+                  aria-label="Remove file"
                 >
                   <X className="size-4" />
                 </button>
@@ -159,10 +169,10 @@ export default function Home() {
                   <ImagePlus className="size-5" />
                 </div>
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                  Drop a photo here, or click to browse
+                  Drop a photo or video here, or click to browse
                 </p>
                 <p className="text-xs text-slate-400 dark:text-slate-500">
-                  PNG or JPG, clear side/rear shots work best
+                  PNG/JPG or MP4/MOV walkaround clips, up to 15MB
                 </p>
               </>
             )}
@@ -246,8 +256,14 @@ export default function Home() {
                       <p className="text-sm text-slate-500 dark:text-slate-400">
                         {dent.description}
                       </p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">
-                        Approx. size: {dent.approximateSize}
+                      <p className="flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+                        <span>Approx. size: {dent.approximateSize}</span>
+                        {dent.timestamp && (
+                          <span className="flex items-center gap-1">
+                            <Film className="size-3" />
+                            {dent.timestamp}
+                          </span>
+                        )}
                       </p>
                     </li>
                   ))}

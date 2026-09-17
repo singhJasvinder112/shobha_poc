@@ -18,6 +18,12 @@ export const dentAnalysisSchema = z.object({
           .string()
           .describe('Rough estimated size, e.g. "5-10cm diameter"'),
         description: z.string().describe("Short description of the dent"),
+        timestamp: z
+          .string()
+          .nullable()
+          .describe(
+            'For video input only: the mm:ss timestamp where this dent is best visible. Null for photo input.',
+          ),
       }),
     )
     .describe("Every distinct dent visible in the image"),
