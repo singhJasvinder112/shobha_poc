@@ -29,53 +29,46 @@ import { SEVERITY_ORDER, isSeverity, type Severity } from "@/lib/damage-tokens";
 const MAX_CONCURRENT_ANALYSES = 3;
 
 /**
- * Redraw a queued file onto a canvas at its native size, for storage.
+ * Turn a queued file into a data URL for storage.
  *
- * No resizing, no cropping — the canvas is exactly the source's own
- * dimensions. Videos get their first drawable frame. Any failure resolves
- * to null — a missing preview must never stop an inspection from running.
+ * Images are read as-is — their exact original bytes, no canvas
+ * decode/re-encode round trip, no resizing, no cropping. Videos have no
+ * directly displayable form, so their first frame is grabbed onto a canvas
+ * at the video's own resolution — that decode is unavoidable there. Any
+ * failure resolves to null — a missing preview must never stop an
+ * inspection from running.
  */
 async function makeThumbnail(file: File): Promise<string | null> {
   try {
+    if (!file.type.startsWith("video/")) {
+      return await new Promise<string | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+    }
+
     const url = URL.createObjectURL(file);
     try {
-      const source = await new Promise<
-        HTMLImageElement | HTMLVideoElement | null
-      >((resolve) => {
-        if (file.type.startsWith("video/")) {
-          const v = document.createElement("video");
-          v.muted = true;
-          v.preload = "metadata";
-          v.onloadeddata = () => resolve(v);
-          v.onerror = () => resolve(null);
-          v.src = url;
-        } else {
-          const img = new Image();
-          img.onload = () => resolve(img);
-          img.onerror = () => resolve(null);
-          img.src = url;
-        }
+      const video = await new Promise<HTMLVideoElement | null>((resolve) => {
+        const v = document.createElement("video");
+        v.muted = true;
+        v.preload = "metadata";
+        v.onloadeddata = () => resolve(v);
+        v.onerror = () => resolve(null);
+        v.src = url;
       });
-      if (!source) return null;
-
-      const sw =
-        source instanceof HTMLVideoElement
-          ? source.videoWidth
-          : source.naturalWidth;
-      const sh =
-        source instanceof HTMLVideoElement
-          ? source.videoHeight
-          : source.naturalHeight;
-      if (!sw || !sh) return null;
+      if (!video || !video.videoWidth || !video.videoHeight) return null;
 
       const canvas = document.createElement("canvas");
-      canvas.width = sw;
-      canvas.height = sh;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
       const ctx = canvas.getContext("2d");
       if (!ctx) return null;
 
-      ctx.drawImage(source, 0, 0);
-      return canvas.toDataURL("image/jpeg", 0.8);
+      ctx.drawImage(video, 0, 0);
+      return canvas.toDataURL("image/jpeg", 0.9);
     } finally {
       URL.revokeObjectURL(url);
     }
