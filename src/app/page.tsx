@@ -28,16 +28,12 @@ import { SEVERITY_ORDER, isSeverity, type Severity } from "@/lib/damage-tokens";
 
 const MAX_CONCURRENT_ANALYSES = 3;
 
-/** Cap on the long edge of the stored preview image. */
-const THUMB_MAX_EDGE = 1400;
-
 /**
- * Downscale a queued file to a small JPEG for storage.
+ * Redraw a queued file onto a canvas at its native size, for storage.
  *
- * Done in the browser so a multi-megabyte original never has to be kept.
- * Keeps the original image's own aspect ratio — no cropping, no letterboxing.
- * Videos get their first drawable frame. Any failure resolves to null —
- * a missing preview must never stop an inspection from running.
+ * No resizing, no cropping — the canvas is exactly the source's own
+ * dimensions. Videos get their first drawable frame. Any failure resolves
+ * to null — a missing preview must never stop an inspection from running.
  */
 async function makeThumbnail(file: File): Promise<string | null> {
   try {
@@ -72,14 +68,13 @@ async function makeThumbnail(file: File): Promise<string | null> {
           : source.naturalHeight;
       if (!sw || !sh) return null;
 
-      const scale = Math.min(1, THUMB_MAX_EDGE / Math.max(sw, sh));
       const canvas = document.createElement("canvas");
-      canvas.width = Math.round(sw * scale);
-      canvas.height = Math.round(sh * scale);
+      canvas.width = sw;
+      canvas.height = sh;
       const ctx = canvas.getContext("2d");
       if (!ctx) return null;
 
-      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(source, 0, 0);
       return canvas.toDataURL("image/jpeg", 0.8);
     } finally {
       URL.revokeObjectURL(url);
