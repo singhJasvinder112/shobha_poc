@@ -10,14 +10,15 @@ export const maxDuration = 60;
 const MODEL = google("gemini-3.8-flash");
 
 const INSTRUCTIONS =
-  "You just finished a live camera inspection session of a bus: you watched its " +
+  "You just finished a live camera inspection session of a vehicle — a bus or a car: you watched its " +
   "video feed in real time and answered questions about visible damage as they " +
   "came up. Below is the transcript of that session. Consolidate everything you " +
   "observed into a single structured damage report — merge repeated or duplicate " +
-  "observations of the same dent into one entry." +
-  "Price any repair estimate in UAE dirhams (AED) using Dubai bodyshop rates for a large passenger bus — not US or European prices. " +
+  "observations of the same dent into one entry. First decide vehicleType from the " +
+  "transcript — \"bus\" for a bus/coach, \"car\" for a sedan, SUV, hatchback or pickup." +
+  "Price any repair estimate in UAE dirhams (AED) using Dubai bodyshop rates for THAT vehicle type — not US or European prices. " +
   "If the transcript never confirms " +
-  "a bus was in view, set vehicleDetected to false and leave the other fields as " +
+  "a vehicle was in view, set vehicleDetected to false and leave the other fields as " +
   "reasonable defaults.";
 
 
@@ -45,8 +46,11 @@ were read out or clearly seen. Use null otherwise; never invent a plate.
 
 DAMAGE — set damageType ("dent", "scratch" or "crack") on every entry.
 
-COSTING — price each item from this rate card, set estimatedCostAed on it, and
-name the line in repairMethod. Set the overall estimatedRepairCostAed to the sum.
+COSTING — first decide vehicleType (bus or car), then price each item from the
+MATCHING rate card below, set estimatedCostAed on it, and name the line in
+repairMethod. Set the overall estimatedRepairCostAed to the sum.
+
+If vehicleType is "bus" — Dubai BUS bodyshop rates in AED:
   Polish / buff out a light scratch ............. 100 - 300
   PDR (paintless dent removal), small dent ...... 150 - 400
   Small dent, repair + localised respray ........ 400 - 800
@@ -60,6 +64,22 @@ name the line in repairMethod. Set the overall estimatedRepairCostAed to the sum
   Side window glass ............................. 600 - 1,500
   Mirror assembly ............................... 300 - 900
   Structural / chassis work ..................... 8,000 upwards
+
+If vehicleType is "car" — Dubai CAR bodyshop rates in AED:
+  Polish / buff out a light scratch .............. 80 - 250
+  PDR (paintless dent removal), small dent ....... 120 - 350
+  Small dent, repair + localised respray ......... 300 - 600
+  Medium panel dent, beat + respray .............. 600 - 1,200
+  Large panel dent, beat + respray ............... 1,200 - 2,500
+  Panel replacement ............................... 1,500 - 4,000
+  Bumper repair .................................... 300 - 800
+  Bumper replacement ............................... 1,200 - 3,000
+  Headlamp or tail lamp unit ....................... 500 - 1,800
+  Windscreen replacement ........................... 800 - 2,200
+  Side window glass ................................ 400 - 1,000
+  Mirror assembly ................................... 200 - 700
+  Structural / chassis work ........................ 5,000 upwards
+
 A single small dent costs a few HUNDRED dirhams. Never price a minor dent in the
 thousands.`;
 

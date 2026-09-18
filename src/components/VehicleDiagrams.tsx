@@ -7,8 +7,8 @@ import { placeAll, type DiagramView } from "@/lib/damage-mapping";
 
 /**
  * The "Vehicle Condition Diagrams" half of the handover form: four views of the
- * bus with each damage marked where it sits, using the form's own legend
- * (X = Dent, / = Scratch, O = Crack/Hole).
+ * vehicle (bus or car) with each damage marked where it sits, using the form's
+ * own legend (X = Dent, / = Scratch, O = Crack/Hole).
  */
 
 const STROKE = "#334155";
@@ -88,6 +88,79 @@ function BusFront({ rear = false }: { rear?: boolean }) {
   );
 }
 
+function CarSide({ flip = false }: { flip?: boolean }) {
+  return (
+    <g
+      fill="none"
+      stroke={STROKE}
+      strokeWidth={1.4}
+      strokeLinejoin="round"
+      transform={flip ? "translate(200,0) scale(-1,1)" : undefined}
+    >
+      {/* lower body: sloped hood/bonnet at front (left), sloped trunk at rear (right) */}
+      <path d="M14 64 L14 56 Q14 51 19 50 L38 48 Q46 34 62 30 L118 30 Q130 32 136 44 L160 46 Q186 48 190 54 L190 64 Z" />
+      {/* waist line */}
+      <path d="M14 50 L190 50" strokeWidth={0.9} />
+      {/* windscreen, cabin glass, rear window */}
+      <g strokeWidth={0.9}>
+        <path d="M46 48 L64 32 L76 32 L76 48 Z" />
+        <rect x="78" y="33" width="52" height="15" rx="2" />
+        <path d="M132 48 L132 36 L146 48 Z" />
+      </g>
+      {/* door seams */}
+      <path d="M76 48 L76 64 M132 48 L132 64" strokeWidth={0.7} />
+      {/* skirt */}
+      <path d="M14 62 L190 62" strokeWidth={0.6} />
+      {/* wheels */}
+      <circle cx="44" cy="66" r="9" />
+      <circle cx="44" cy="66" r="4" strokeWidth={0.8} />
+      <circle cx="158" cy="66" r="9" />
+      <circle cx="158" cy="66" r="4" strokeWidth={0.8} />
+      <path d="M14 64 L35 64 M53 64 L149 64 M167 64 L190 64" />
+    </g>
+  );
+}
+
+function CarFront({ rear = false }: { rear?: boolean }) {
+  return (
+    <g fill="none" stroke={STROKE} strokeWidth={1.4} strokeLinejoin="round">
+      {/* body outline: lower and wider than the bus cab, rounded shoulders */}
+      <path d="M12 74 L12 46 Q12 34 26 30 L94 30 Q108 34 108 46 L108 74 Z" />
+      {/* windscreen / rear glass */}
+      <rect
+        x="26"
+        y="34"
+        width="68"
+        height={rear ? 16 : 18}
+        rx="4"
+        strokeWidth={0.9}
+      />
+      {rear ? (
+        <>
+          {/* tail lamps */}
+          <rect x="18" y="54" width="16" height="10" rx="2" strokeWidth={0.9} />
+          <rect x="86" y="54" width="16" height="10" rx="2" strokeWidth={0.9} />
+          {/* plate */}
+          <rect x="44" y="56" width="32" height="10" rx="1" strokeWidth={0.9} />
+        </>
+      ) : (
+        <>
+          {/* grille */}
+          <rect x="30" y="56" width="26" height="10" rx="2" strokeWidth={0.9} />
+          <path d="M30 60 L56 60" strokeWidth={0.6} />
+          {/* headlamps */}
+          <rect x="16" y="54" width="14" height="8" rx="3" strokeWidth={0.9} />
+          <rect x="90" y="54" width="14" height="8" rx="3" strokeWidth={0.9} />
+          {/* mirrors */}
+          <path d="M12 40 L4 44 M108 40 L116 44" strokeWidth={1} />
+        </>
+      )}
+      {/* bumper */}
+      <rect x="10" y="68" width="100" height="8" rx="3" strokeWidth={1} />
+    </g>
+  );
+}
+
 const VIEWS: { id: DiagramView; label: string; wide: boolean }[] = [
   { id: "front", label: "Front", wide: false },
   { id: "rear", label: "Rear", wide: false },
@@ -97,6 +170,9 @@ const VIEWS: { id: DiagramView; label: string; wide: boolean }[] = [
 
 export default function VehicleDiagrams({ result }: { result: DentAnalysis }) {
   const { placed, unplaced } = placeAll(result.dents);
+  // Older records were saved before car support existed and never set this
+  // field — they were all buses, so that stays the default.
+  const isCar = result.vehicleType === "car";
 
   return (
     <section className="border-t-2 border-slate-900 px-4 py-3">
@@ -125,10 +201,12 @@ export default function VehicleDiagrams({ result }: { result: DentAnalysis }) {
                 role="img"
                 aria-label={`${view.label} view`}
               >
-                {view.id === "left" && <BusSide />}
-                {view.id === "right" && <BusSide flip />}
-                {view.id === "front" && <BusFront />}
-                {view.id === "rear" && <BusFront rear />}
+                {view.id === "left" && (isCar ? <CarSide /> : <BusSide />)}
+                {view.id === "right" &&
+                  (isCar ? <CarSide flip /> : <BusSide flip />)}
+                {view.id === "front" && (isCar ? <CarFront /> : <BusFront />)}
+                {view.id === "rear" &&
+                  (isCar ? <CarFront rear /> : <BusFront rear />)}
               </svg>
 
               {/* Markers sit in a percentage-positioned overlay so they line up

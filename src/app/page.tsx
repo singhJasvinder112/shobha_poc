@@ -359,7 +359,7 @@ export default function Home() {
               Fleet Damage Inspection
             </span>
             <span className="truncate text-xs text-slate-500 dark:text-slate-400">
-              AI condition reports for bus fleets
+              AI condition reports for bus and car fleets
             </span>
           </div>
 

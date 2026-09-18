@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bus, ChevronDown, Database, Search } from "lucide-react";
+import { Bus, Car, ChevronDown, Database, Search } from "lucide-react";
 import type { AnalysisRecord } from "@/lib/db";
 import InspectionResult from "@/components/InspectionResult";
 import { ConditionBadge } from "@/components/Badges";
@@ -10,11 +10,27 @@ import { compactAed, totalCostAed } from "@/lib/damage-tokens";
 /**
  * Full inspection history, grouped by vehicle.
  *
- * Several photos of the same bus are separate inspections but one vehicle, so
- * they are grouped under the plate or asset ID the model read off the bodywork.
- * Records with no readable identity fall back to their own group rather than
- * being lumped together, which would silently merge two different buses.
+ * Several photos of the same bus or car are separate inspections but one
+ * vehicle, so they are grouped under the plate or asset ID the model read off
+ * the bodywork. Records with no readable identity fall back to their own group
+ * rather than being lumped together, which would silently merge two different
+ * vehicles.
  */
+
+/** Older records never set vehicleType — they were all buses, so that's the fallback. */
+function VehicleIcon({
+  vehicleType,
+  className,
+}: {
+  vehicleType: string | null | undefined;
+  className?: string;
+}) {
+  return vehicleType === "car" ? (
+    <Car className={className} />
+  ) : (
+    <Bus className={className} />
+  );
+}
 
 type Group = {
   key: string;
@@ -144,7 +160,10 @@ export default function HistoryView({
               className="rounded-xl border border-slate-200 dark:border-white/10"
             >
               <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3 dark:border-white/10">
-                <Bus className="size-4 shrink-0 text-[#ef6306]" />
+                <VehicleIcon
+                  vehicleType={latest.result?.vehicleType}
+                  className="size-4 shrink-0 text-[#ef6306]"
+                />
                 <span className="font-semibold text-slate-900 dark:text-white">
                   {group.label}
                 </span>
@@ -190,7 +209,10 @@ export default function HistoryView({
                           />
                         ) : (
                           <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-white/10">
-                            <Bus className="size-5 text-slate-300 dark:text-slate-600" />
+                            <VehicleIcon
+                              vehicleType={rec.result?.vehicleType}
+                              className="size-5 text-slate-300 dark:text-slate-600"
+                            />
                           </span>
                         )}
                         <div className="min-w-0 flex-1">

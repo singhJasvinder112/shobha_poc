@@ -159,6 +159,8 @@ export default function HandoverReport({
   const plate = result.vehicle?.plateNumber ?? null;
   const assetId = result.vehicle?.assetId ?? null;
   const makeModel = result.vehicle?.makeModel ?? null;
+  // Older records never set vehicleType — they were all buses, so that's the fallback.
+  const vehicleLabel = result.vehicleType === "car" ? "Car" : "Bus";
 
   return (
     <div className="flex flex-col gap-4">
@@ -218,7 +220,7 @@ export default function HandoverReport({
             </span>
           </span>
           <h3 className="text-sm font-semibold tracking-wide text-blue-800 uppercase">
-            Vehicle Handover / Takeover Acknowledgement (Bus)
+            Vehicle Handover / Takeover Acknowledgement ({vehicleLabel})
           </h3>
           <p className="text-base font-bold tracking-wide text-blue-900 uppercase">
             Handover
@@ -227,7 +229,7 @@ export default function HandoverReport({
 
         {/* Identity block — AI-read values sit in place, blanks are typed in. */}
         <dl className="grid grid-cols-1 border-b border-slate-300 sm:grid-cols-3">
-          <Field label="Bus Plate No" value={plate} aiRead />
+          <Field label={`${vehicleLabel} Plate No`} value={plate} aiRead />
           <Field label="Asset ID" value={assetId} aiRead />
           <Field label="Date & Time" value={stampedAt} />
           <Field label="Make & Model" value={makeModel} aiRead />

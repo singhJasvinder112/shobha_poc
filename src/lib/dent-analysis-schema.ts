@@ -15,10 +15,18 @@ export const damageTypeSchema = z.enum(["dent", "scratch", "crack"]);
 
 export const checkStatusSchema = z.enum(["good", "attention", "not_assessable"]);
 
+/** Which of the two vehicle silhouettes/rate cards apply. Null on older records saved before car support existed — treat as "bus" for display. */
+export const vehicleTypeSchema = z.enum(["bus", "car"]);
+
 export const dentAnalysisSchema = z.object({
   vehicleDetected: z
     .boolean()
-    .describe("Whether a bus (or similar large vehicle) is clearly visible in the image"),
+    .describe("Whether a bus, car or similar road vehicle is clearly visible in the image"),
+  vehicleType: vehicleTypeSchema
+    .nullable()
+    .describe(
+      "Whether the vehicle is a bus (or other large passenger/commercial vehicle) or a car (sedan, SUV, hatchback, pickup). Null if vehicleDetected is false.",
+    ),
   overallCondition: z
     .enum(["excellent", "good", "fair", "poor"])
     .describe("Overall exterior condition of the vehicle"),
@@ -31,11 +39,11 @@ export const dentAnalysisSchema = z.object({
       assetId: z
         .string()
         .nullable()
-        .describe('Fleet or asset ID painted on the bus, e.g. "BS-71". Null if not visible.'),
+        .describe('Fleet or asset ID painted on the vehicle, e.g. "BS-71". Null if not visible.'),
       makeModel: z
         .string()
         .nullable()
-        .describe('Make and model if identifiable, e.g. "EICHER SKYLINE 20.15 NAC 70".'),
+        .describe('Make and model if identifiable, e.g. "EICHER SKYLINE 20.15 NAC 70" or "TOYOTA CAMRY".'),
     })
     .nullable()
     .describe("Identifiers read directly off the vehicle. Never guess — use null."),
@@ -44,7 +52,7 @@ export const dentAnalysisSchema = z.object({
       z.object({
         location: z
           .string()
-          .describe('Where on the bus the damage is, e.g. "rear left panel", "front bumper"'),
+          .describe('Where on the vehicle the damage is, e.g. "rear left panel", "front bumper"'),
         damageType: damageTypeSchema
           .nullable()
           .describe("dent, scratch, or crack/hole — matching the handover form legend"),
@@ -133,3 +141,4 @@ export type StoredAnalysis = z.infer<typeof dentAnalysisSchema> & {
 export type DentAnalysis = StoredAnalysis;
 export type DamageType = z.infer<typeof damageTypeSchema>;
 export type CheckStatus = z.infer<typeof checkStatusSchema>;
+export type VehicleType = z.infer<typeof vehicleTypeSchema>;

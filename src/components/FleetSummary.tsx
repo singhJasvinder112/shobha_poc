@@ -84,7 +84,7 @@ export default function FleetSummary({
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile
-          label="Buses inspected"
+          label="Vehicles inspected"
           value={analyses.length.toLocaleString()}
           icon={Bus}
         />

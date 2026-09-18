@@ -49,7 +49,10 @@ number plate, fleet/asset ID, and make/model. Use null for anything not clearly
 legible — never infer a plate you cannot actually read.
 
 For each damage entry set damageType to "dent", "scratch" or "crack" to match
-the form's legend (X = Dent, / = Scratch, O = Crack/Hole).`;
+the form's legend (X = Dent, / = Scratch, O = Crack/Hole).
+
+Also set "vehicleType" to "bus" for a bus/coach and "car" for a sedan, SUV,
+hatchback or pickup. Use null only if vehicleDetected is false.`;
 
 
 
@@ -77,10 +80,15 @@ does not follow the body line, and any break in a straight edge or crease.`;
 // imagination: an invented four-figure price for a 5cm dent is the fastest way
 // to lose a fleet manager's trust. The model picks a line and applies it; the
 // TOTAL is summed in TypeScript so the figures always reconcile.
+//
+// Buses and cars get separate cards: a bus panel is bigger and costs more to
+// beat and respray than the equivalent car panel, so one shared card would
+// either overprice every car repair or underprice every bus repair.
 const RATE_CARD = `
-COSTING — use this rate card. Do not invent prices.
+COSTING — first decide vehicleType (bus or car), then use ONLY the matching
+rate card below. Do not invent prices and do not mix the two cards.
 
-Per item, Dubai bus bodyshop rates in AED:
+If vehicleType is "bus" — Dubai BUS bodyshop rates in AED:
   Polish / buff out a light scratch ............. 100 - 300
   PDR (paintless dent removal), small dent ...... 150 - 400
   Small dent, repair + localised respray ........ 400 - 800
@@ -95,6 +103,22 @@ Per item, Dubai bus bodyshop rates in AED:
   Mirror assembly ............................... 300 - 900
   Structural / chassis work ..................... 8,000 upwards
   Body labour ................................... 120 - 180 per hour
+
+If vehicleType is "car" — Dubai CAR bodyshop rates in AED (sedan/SUV/hatchback/pickup):
+  Polish / buff out a light scratch .............. 80 - 250
+  PDR (paintless dent removal), small dent ....... 120 - 350
+  Small dent, repair + localised respray ......... 300 - 600
+  Medium panel dent, beat + respray .............. 600 - 1,200
+  Large panel dent, beat + respray ............... 1,200 - 2,500
+  Panel replacement ............................... 1,500 - 4,000
+  Bumper repair .................................... 300 - 800
+  Bumper replacement ............................... 1,200 - 3,000
+  Headlamp or tail lamp unit ....................... 500 - 1,800
+  Windscreen replacement ........................... 800 - 2,200
+  Side window glass ................................ 400 - 1,000
+  Mirror assembly ................................... 200 - 700
+  Structural / chassis work ........................ 5,000 upwards
+  Body labour ....................................... 100 - 150 per hour
 
 Rules:
 - Set estimatedCostAed on EACH damage entry from the line that fits, and name
@@ -145,8 +169,8 @@ export async function POST(request: Request) {
   const mediaType = media.type;
 
   const instructions = isVideo
-    ? "You are inspecting a walkaround video of a bus for a fleet damage report. Watch the whole clip and identify every dent visible on the body of the bus, rate each one's severity, and note the mm:ss timestamp where it is best visible. Also note any other visible damage, and give an overall condition assessment and repair recommendation. Price any repair estimate in UAE dirhams (AED) using Dubai bodyshop rates for a large passenger bus — not US or European prices. If no bus is visible, set vehicleDetected to false and leave the other fields as reasonable defaults." + DAMAGE_SWEEP + RATE_CARD + CHECKLIST_INSTRUCTIONS
-    : "You are inspecting a photo of a bus for a fleet damage report. Identify every dent visible on the body of the bus, rate each one's severity, note any other visible damage, and give an overall condition assessment and repair recommendation. Price any repair estimate in UAE dirhams (AED) using Dubai bodyshop rates for a large passenger bus — not US or European prices. If no bus is visible, set vehicleDetected to false and leave the other fields as reasonable defaults." + DAMAGE_SWEEP + RATE_CARD + CHECKLIST_INSTRUCTIONS;
+    ? "You are inspecting a walkaround video of a vehicle — a bus or a car — for a fleet damage report. First identify whether it is a bus (or other large passenger/commercial vehicle) or a car (sedan, SUV, hatchback, pickup) and set vehicleType accordingly. Watch the whole clip and identify every dent visible on the body of the vehicle, rate each one's severity, and note the mm:ss timestamp where it is best visible. Also note any other visible damage, and give an overall condition assessment and repair recommendation. Price any repair estimate in UAE dirhams (AED) using Dubai bodyshop rates for that vehicle type — not US or European prices. If no vehicle is visible, set vehicleDetected to false and leave the other fields as reasonable defaults." + DAMAGE_SWEEP + RATE_CARD + CHECKLIST_INSTRUCTIONS
+    : "You are inspecting a photo of a vehicle — a bus or a car — for a fleet damage report. First identify whether it is a bus (or other large passenger/commercial vehicle) or a car (sedan, SUV, hatchback, pickup) and set vehicleType accordingly. Identify every dent visible on the body of the vehicle, rate each one's severity, note any other visible damage, and give an overall condition assessment and repair recommendation. Price any repair estimate in UAE dirhams (AED) using Dubai bodyshop rates for that vehicle type — not US or European prices. If no vehicle is visible, set vehicleDetected to false and leave the other fields as reasonable defaults." + DAMAGE_SWEEP + RATE_CARD + CHECKLIST_INSTRUCTIONS;
 
   try {
     const { output } = await generateText({
@@ -175,7 +199,7 @@ export async function POST(request: Request) {
       },
       output: Output.object({
         name: "DentAnalysis",
-        description: "Structured dent/damage analysis of a bus photo or video",
+        description: "Structured dent/damage analysis of a bus or car photo or video",
         schema: dentAnalysisSchema,
       }),
     });
