@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bus Dent Analysis",
-  description: "Upload a bus photo and get an AI-powered dent and damage report",
+  title: "SOBHA Fleet Damage Inspection",
+  description:
+    "AI bus damage inspection that pre-fills the SOBHA vehicle handover form",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -20,8 +20,14 @@
 }
 
 body {
+  /* Ambient glow in the brand orange, not a stock blue.
+     no-repeat: the background shorthand resets background-repeat, so without
+     it the glow re-tiles every viewport-height down a long page.
+     The far stop is the same hue at zero alpha - fading to plain transparent
+     interpolates through transparent BLACK and leaves a grey haze. */
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.16), transparent),
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(239, 99, 6, 0.1), rgba(239, 99, 6, 0))
+      no-repeat,
     var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
@@ -40,4 +46,75 @@ body {
 
 .animate-fade-in-up {
   animation: fade-in-up 0.35s ease-out both;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Print / Save-as-PDF.
+   When a handover form is printed, everything except that form is removed from
+   the page so the output is the document on its own — the browser's Save as PDF
+   then produces a real, selectable-text PDF with no extra dependency.
+   --------------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Printing lays out at the A4 page width (~700px), so any xl-only utility on
+     an ancestor of the form collapses and the sheet comes out blank. Force the
+     single chain of ancestors that leads to the chosen form back into view. */
+  body :has(.print-target) {
+    display: block !important;
+  }
+
+  /* Hide every branch that does not contain the chosen form. */
+  body :has(.print-target) > *:not(:has(.print-target)):not(.print-target) {
+    display: none !important;
+  }
+
+  header,
+  aside,
+  nav,
+  button,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* `input` is deliberately NOT hidden: the odometer and driver details are
+     typed into inputs and must appear on the printed form. */
+  input {
+    border: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Lift the form out of its nested layout and let it fill the sheet. */
+  .print-target {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .print-target * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Keep a section and its diagrams from splitting across a page break. */
+  .print-target section,
+  .print-target figure,
+  .print-target tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }

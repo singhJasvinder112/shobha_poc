@@ -32,6 +32,17 @@ export type Database = {
 
 let client: ReturnType<typeof createClient<Database>> | null = null;
 
+/**
+ * Whether Supabase credentials are present. Callers use this to tell a
+ * *deliberately unconfigured* deployment (history simply switched off) apart
+ * from a real outage, so the UI can say which one it is.
+ */
+export function isSupabaseConfigured() {
+  return Boolean(
+    process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+}
+
 export function getSupabase() {
   if (!client) {
     const url = process.env.SUPABASE_URL;

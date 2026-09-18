@@ -11,7 +11,7 @@ import {
   VideoOff,
 } from "lucide-react";
 import type { DentAnalysis } from "@/lib/dent-analysis-schema";
-import { AnalysisDetails } from "@/components/AnalysisDetails";
+import InspectionResult from "@/components/InspectionResult";
 
 type LogEntry = {
   id: string;
@@ -48,6 +48,7 @@ export default function LiveScanner({
   const [question, setQuestion] = useState("");
   const [awaitingResponse, setAwaitingResponse] = useState(false);
   const [report, setReport] = useState<DentAnalysis | null>(null);
+  const [sessionLabel, setSessionLabel] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
 
@@ -62,15 +63,21 @@ export default function LiveScanner({
   const currentAssistantIdRef = useRef<string | null>(null);
   const awaitingResponseRef = useRef(false);
   const autoScanRef = useRef(autoScan);
+  // Guards the async start() sequence: the user can leave Live mode mid-connect,
+  // and without this the resumed sequence would build a session nothing can stop.
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     autoScanRef.current = autoScan;
   }, [autoScan]);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       cleanupLocalResources();
       wsRef.current?.close();
+      wsRef.current = null;
     };
   }, []);
 
@@ -171,6 +178,18 @@ export default function LiveScanner({
   }
 
   async function start() {
+    // Browsers expose getUserMedia only in a secure context: https, or
+    // localhost. Over http on a LAN IP (a phone hitting 192.168.x.x) the call
+    // rejects with a bare NotAllowedError, which reads like a denied permission
+    // prompt. Name the real cause instead.
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      setError(
+        "The camera needs a secure connection. This page is on plain http, so the browser blocks it. Open it on https, or on localhost on this machine.",
+      );
+      setStatus("idle");
+      return;
+    }
+
     setStatus("connecting");
     setError(null);
     setLog([]);
@@ -182,6 +201,10 @@ export default function LiveScanner({
         video: { facingMode: "environment" },
         audio: false,
       });
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -192,6 +215,11 @@ export default function LiveScanner({
       const tokenData = (await tokenRes.json()) as LiveTokenResponse;
       if (!tokenRes.ok) {
         throw new Error(tokenData.error ?? "Could not start the live session");
+      }
+
+      if (!mountedRef.current) {
+        cleanupLocalResources();
+        return;
       }
 
       const ws = new WebSocket(
@@ -222,6 +250,11 @@ export default function LiveScanner({
         }
 
         if (message.setupComplete) {
+          if (!mountedRef.current) {
+            ws.close();
+            cleanupLocalResources();
+            return;
+          }
           setStatus("live");
           frameIntervalRef.current = setInterval(
             captureFrame,
@@ -302,6 +335,7 @@ export default function LiveScanner({
     setReportLoading(true);
     setReportError(null);
     setReport(null);
+    setSessionLabel(new Date().toLocaleString("en-AE"));
 
     try {
       const res = await fetch("/api/analyze-live", {
@@ -335,7 +369,7 @@ export default function LiveScanner({
   const isConnecting = status === "connecting";
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white/80 p-6 shadow-xs backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
+    <section className="flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white/80 p-6 shadow-xs dark:border-white/10 dark:bg-white/5">
       <div className="relative overflow-hidden rounded-xl bg-slate-900">
         <video
           ref={videoRef}
@@ -475,7 +509,10 @@ export default function LiveScanner({
 
       {report && (
         <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
-          <AnalysisDetails result={report} />
+          <InspectionResult
+            result={report}
+            fileName={`Live walkaround — ${sessionLabel}`}
+          />
         </div>
       )}
     </section>
