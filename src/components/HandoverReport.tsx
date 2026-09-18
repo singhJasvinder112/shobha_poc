@@ -26,9 +26,10 @@ type Resolved = {
   evidence: CheckEvidence;
 };
 
-/** Free-text header fields the AI cannot know — typed by whoever runs the handover. */
+/** Operational header fields the AI cannot read off the bodywork. */
 type HeaderFields = {
   odometer: string;
+  nextPmKms: string;
   driverName: string;
   driverEmpId: string;
   driverPhone: string;
@@ -76,11 +77,15 @@ export default function HandoverReport({
   // can be open at once, so a shared id would print them on top of each other.
   const formRef = useRef<HTMLDivElement>(null);
 
+  // Seeded from whatever the record already carries, so reopening a past
+  // inspection shows what was entered at the time instead of empty boxes.
+  const meta = result.handover ?? null;
   const [header, setHeader] = useState<HeaderFields>({
-    odometer: "",
-    driverName: "",
-    driverEmpId: "",
-    driverPhone: "",
+    odometer: meta?.odometer ?? "",
+    nextPmKms: meta?.nextPmKms ?? "",
+    driverName: meta?.driverName ?? "",
+    driverEmpId: meta?.driverEmpId ?? "",
+    driverPhone: meta?.driverPhone ?? "",
   });
 
   // Merge the model's findings onto the canonical list. The list drives the
@@ -141,6 +146,16 @@ export default function HandoverReport({
   // tick forward on every keystroke in the driver fields.
   const stampedAt = useMemo(() => new Date().toLocaleString("en-AE"), []);
 
+  // Every handover sheet carries a reference. Derived from the record so the
+  // same inspection always prints the same number.
+  const metaRecordNo = meta?.recordNo ?? null;
+  const recordNo = useMemo(() => {
+    if (metaRecordNo) return metaRecordNo;
+    let h = 0;
+    for (const ch of fileName) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return String(h).padStart(10, "0").slice(0, 10);
+  }, [metaRecordNo, fileName]);
+
   const plate = result.vehicle?.plateNumber ?? null;
   const assetId = result.vehicle?.assetId ?? null;
   const makeModel = result.vehicle?.makeModel ?? null;
@@ -194,8 +209,13 @@ export default function HandoverReport({
         )}
 
         <div className="flex flex-col items-center gap-1 border-b-2 border-slate-900 px-5 py-4 text-center">
-          <span className="self-start text-sm font-semibold tracking-[0.2em] text-slate-900">
-            SOBHA
+          <span className="flex w-full items-baseline justify-between gap-3">
+            <span className="text-sm font-semibold tracking-[0.2em] text-slate-900">
+              SOBHA
+            </span>
+            <span className="text-[11px] text-slate-600">
+              Record: <span className="font-semibold">{recordNo}</span>
+            </span>
           </span>
           <h3 className="text-sm font-semibold tracking-wide text-blue-800 uppercase">
             Vehicle Handover / Takeover Acknowledgement (Bus)
@@ -214,21 +234,31 @@ export default function HandoverReport({
           <EditableField
             label="Odometer"
             value={header.odometer}
+            placeholder="e.g. 128,540 km"
             onChange={(v) => setHeader((h) => ({ ...h, odometer: v }))}
+          />
+          <EditableField
+            label="Next PM kms"
+            value={header.nextPmKms}
+            placeholder="e.g. 135,000 km"
+            onChange={(v) => setHeader((h) => ({ ...h, nextPmKms: v }))}
           />
           <EditableField
             label="Driver Name"
             value={header.driverName}
+            placeholder="Full name"
             onChange={(v) => setHeader((h) => ({ ...h, driverName: v }))}
           />
           <EditableField
             label="Driver EMP ID"
             value={header.driverEmpId}
+            placeholder="e.g. C20123"
             onChange={(v) => setHeader((h) => ({ ...h, driverEmpId: v }))}
           />
           <EditableField
             label="Phone"
             value={header.driverPhone}
+            placeholder="Contact number"
             onChange={(v) => setHeader((h) => ({ ...h, driverPhone: v }))}
           />
           <Field label="Source file" value={fileName} />
@@ -434,10 +464,12 @@ function EditableField({
   label,
   value,
   onChange,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  placeholder?: string;
 }) {
   return (
     <div className="border-r border-b border-slate-200 px-3 py-2 last:border-r-0">
@@ -448,7 +480,7 @@ function EditableField({
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="—"
+          placeholder={placeholder ?? "—"}
           className="w-full bg-transparent text-[13px] font-semibold text-slate-900 placeholder:text-slate-300 focus:outline-none"
         />
       </dd>

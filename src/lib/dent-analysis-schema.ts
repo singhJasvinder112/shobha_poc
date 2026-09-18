@@ -114,9 +114,20 @@ export const dentAnalysisSchema = z.object({
  * returns — it is attached server-side before saving, so it stays out of the
  * structured-output schema the model has to satisfy.
  */
+export type HandoverMeta = {
+  recordNo?: string | null;
+  odometer?: string | null;
+  nextPmKms?: string | null;
+  driverName?: string | null;
+  driverEmpId?: string | null;
+  driverPhone?: string | null;
+};
+
 export type StoredAnalysis = z.infer<typeof dentAnalysisSchema> & {
-  /** Downscaled JPEG data URL, roughly 480x320. Absent on older records. */
+  /** Downscaled JPEG data URL. Absent on older records. */
   thumbnail?: string | null;
+  /** Operational fields entered by the inspector, not read from the image. */
+  handover?: HandoverMeta | null;
 };
 
 export type DentAnalysis = StoredAnalysis;
