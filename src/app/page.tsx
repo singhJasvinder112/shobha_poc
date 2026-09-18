@@ -28,14 +28,14 @@ import { SEVERITY_ORDER, isSeverity, type Severity } from "@/lib/damage-tokens";
 
 const MAX_CONCURRENT_ANALYSES = 3;
 
-/** Long edge of the stored preview image. */
-const THUMB_W = 1400;
-const THUMB_H = 933;
+/** Cap on the long edge of the stored preview image. */
+const THUMB_MAX_EDGE = 1400;
 
 /**
  * Downscale a queued file to a small JPEG for storage.
  *
  * Done in the browser so a multi-megabyte original never has to be kept.
+ * Keeps the original image's own aspect ratio — no cropping, no letterboxing.
  * Videos get their first drawable frame. Any failure resolves to null —
  * a missing preview must never stop an inspection from running.
  */
@@ -43,12 +43,6 @@ async function makeThumbnail(file: File): Promise<string | null> {
   try {
     const url = URL.createObjectURL(file);
     try {
-      const canvas = document.createElement("canvas");
-      canvas.width = THUMB_W;
-      canvas.height = THUMB_H;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return null;
-
       const source = await new Promise<
         HTMLImageElement | HTMLVideoElement | null
       >((resolve) => {
@@ -78,11 +72,14 @@ async function makeThumbnail(file: File): Promise<string | null> {
           : source.naturalHeight;
       if (!sw || !sh) return null;
 
-      // Cover-crop so every tile in the list has the same shape.
-      const scale = Math.max(THUMB_W / sw, THUMB_H / sh);
-      const dw = sw * scale;
-      const dh = sh * scale;
-      ctx.drawImage(source, (THUMB_W - dw) / 2, (THUMB_H - dh) / 2, dw, dh);
+      const scale = Math.min(1, THUMB_MAX_EDGE / Math.max(sw, sh));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(sw * scale);
+      canvas.height = Math.round(sh * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+
+      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
       return canvas.toDataURL("image/jpeg", 0.8);
     } finally {
       URL.revokeObjectURL(url);
