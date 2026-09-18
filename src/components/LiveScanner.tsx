@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { DentAnalysis } from "@/lib/dent-analysis-schema";
 import InspectionResult from "@/components/InspectionResult";
+import { LiveAudioPlayer } from "@/lib/live-audio";
 
 type LogEntry = {
   id: string;
@@ -63,6 +64,9 @@ export default function LiveScanner({
   const currentAssistantIdRef = useRef<string | null>(null);
   const awaitingResponseRef = useRef(false);
   const autoScanRef = useRef(autoScan);
+  // Plays the PCM the model streams back. Without this the assistant
+  // 'speaks' and nothing is heard — only its transcript appears.
+  const audioRef = useRef<LiveAudioPlayer | null>(null);
   // Guards the async start() sequence: the user can leave Live mode mid-connect,
   // and without this the resumed sequence would build a session nothing can stop.
   const mountedRef = useRef(true);
@@ -82,6 +86,8 @@ export default function LiveScanner({
   }, []);
 
   function cleanupLocalResources() {
+    void audioRef.current?.dispose();
+    audioRef.current = null;
     if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
     if (autoScanIntervalRef.current) clearInterval(autoScanIntervalRef.current);
     frameIntervalRef.current = null;
@@ -192,6 +198,11 @@ export default function LiveScanner({
 
     setStatus("connecting");
     setError(null);
+
+    // Created here, inside the click handler: browsers block an AudioContext
+    // started outside a user gesture, and it fails silently.
+    audioRef.current = new LiveAudioPlayer();
+    await audioRef.current.start();
     setLog([]);
     setReport(null);
     setReportError(null);
@@ -270,14 +281,31 @@ export default function LiveScanner({
         const serverContent = message.serverContent as
           | {
               outputTranscription?: { text?: string };
+              modelTurn?: {
+                parts?: {
+                  inlineData?: { mimeType?: string; data?: string };
+                }[];
+              };
               turnComplete?: boolean;
               interrupted?: boolean;
             }
           | undefined;
         if (serverContent) {
+          // Audio arrives as base64 PCM parts alongside the transcript.
+          for (const part of serverContent.modelTurn?.parts ?? []) {
+            const inline = part?.inlineData;
+            if (!inline?.data) continue;
+            if (!(inline.mimeType ?? "").startsWith("audio/")) continue;
+            audioRef.current?.enqueue(inline.data);
+          }
+
           if (serverContent.outputTranscription?.text) {
             appendAssistantDelta(serverContent.outputTranscription.text);
           }
+
+          // Barge-in: drop whatever is still queued so the old answer does
+          // not keep talking over the new one.
+          if (serverContent.interrupted) audioRef.current?.stopCurrent();
           if (serverContent.turnComplete || serverContent.interrupted) {
             if (!currentAssistantIdRef.current) {
               appendAssistantDelta(
